@@ -4,6 +4,7 @@ pub const THREE_BITS: u16 = 0b111;
 pub const FOUR_BITS: u16 = 0b1111;
 
 const MAX_PACKET_SIZE: usize = 512; // bytes
+const POINTER_LIMIT: u8 = 5;
 
 pub struct ByteReader {
     buf: [u8; MAX_PACKET_SIZE],
@@ -65,6 +66,14 @@ impl ByteReader {
     }
 
     pub fn read_string(&mut self) -> Result<String> {
+        self.read_string_helper(0)
+    }
+
+    fn read_string_helper(&mut self, count: u8) -> Result<String> {
+        if count > POINTER_LIMIT {
+            bail!("pointer count exeeded limit");
+        }
+
         let mut string = String::new();
         let mut size = self.read_u8()?;
         let ptr_designator: u8 = 0xC0;
@@ -75,7 +84,7 @@ impl ByteReader {
                 let pointer = u16::from(size ^ ptr_designator) << 8 | u16::from(self.read_u8()?);
                 let saved_index = self.index;
                 self.set_index(pointer.into());
-                string.push_str(&self.read_string()?);
+                string.push_str(&self.read_string_helper(count + 1)?);
                 self.set_index(saved_index);
                 return Ok(string);
             } else if bits != 0 {
