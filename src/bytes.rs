@@ -67,18 +67,19 @@ impl ByteReader {
     pub fn read_string(&mut self) -> Result<String> {
         let mut string = String::new();
         let mut size = self.read_u8()?;
+        let ptr_designator: u8 = 0xC0;
         loop {
-            let marker = size >> 6;
-            if marker == 0b11 {
+            let bits = size & ptr_designator;
+            if bits == ptr_designator {
                 // Follow pointer
-                let pointer = u16::from(size ^ 0xC0) << 8 | u16::from(self.read_u8()?);
+                let pointer = u16::from(size ^ ptr_designator) << 8 | u16::from(self.read_u8()?);
                 let saved_index = self.index;
                 self.set_index(pointer.into());
                 string.push_str(&self.read_string()?);
                 self.set_index(saved_index);
                 return Ok(string);
-            } else if marker != 0 {
-                bail!("Invalid name marker: {}", marker);
+            } else if bits != 0 {
+                bail!("Invalid name bits: {:#b}", bits);
             }
 
             for _ in 0..size {
@@ -119,10 +120,6 @@ pub fn write_string(buf: &mut Vec<u8>, val: &str) {
     buf.push(0);
 }
 
-pub fn read_bit(val: u16, index: u8) -> bool {
-    val >> index & 0b1 == 1
-}
-
 pub fn read_string(buf: &[u8]) -> String {
     let mut string = String::new();
     let mut index = 0;
@@ -140,4 +137,8 @@ pub fn read_string(buf: &[u8]) -> String {
         }
         string.push('.');
     }
+}
+
+pub fn read_bit(val: u16, index: u8) -> bool {
+    (val >> index) & 1 == 1
 }

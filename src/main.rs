@@ -18,9 +18,16 @@ fn main() -> Result<()> {
         bail!("Missing argument\n\nUsage: denis <domain>")
     }
 
-    let query = &args[1];
-    let request = dtos::Message::new_request(query);
-    let data = request.serialize();
+    let resolver = format!("{}:{}", RESOLVER, PORT);
+    println!("Resolver:\t{}\n", resolver);
+
+    let question = dtos::Question {
+        name: args[1].to_string(),
+        qtype: dtos::Type::A,
+        qclass: dtos::Class::IN,
+    };
+    let request = dtos::Message::new_request(question);
+    println!("{}", request);
 
     let socket = UdpSocket::bind("0.0.0.0:0").map_err(|e| anyhow!("Unable to bind: {}", e))?;
     socket
@@ -30,10 +37,10 @@ fn main() -> Result<()> {
         .set_write_timeout(Some(std::time::Duration::from_secs(TIMEOUT)))
         .map_err(|e| anyhow!("Unable to set write timeout: {}", e))?;
     socket
-        .connect(format!("{}:{}", RESOLVER, PORT))
+        .connect(resolver)
         .map_err(|e| anyhow!("Unable to connect: {}", e))?;
     socket
-        .send(&data)
+        .send(&request.serialize())
         .map_err(|e| anyhow!("Unable to send: {}", e))?;
 
     let mut byte_reader = bytes::ByteReader::new();
@@ -43,14 +50,11 @@ fn main() -> Result<()> {
     byte_reader.set_size(size);
 
     let response = dtos::Message::deserialize(byte_reader)?;
+    println!("{}", response);
 
-    response.answers.iter().for_each(|r| {
-        println!("{}: {}", r.name, r.display_data());
-    });
-
-    assert_eq!(response.header.id, request.header.id);
-    assert!(response.header.is_response);
-    assert_eq!(response.header.response_code, dtos::ResponseCode::NoError);
+    debug_assert_eq!(response.header.id, request.header.id);
+    debug_assert!(response.header.is_response);
+    debug_assert_eq!(response.header.response_code, dtos::ResponseCode::NoError);
 
     Ok(())
 }
