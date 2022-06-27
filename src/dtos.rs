@@ -1,6 +1,6 @@
 use crate::bytes;
 
-use anyhow::{bail, Result};
+use anyhow::{anyhow, bail, Result};
 
 // https://datatracker.ietf.org/doc/html/rfc1035#section-4.1
 pub struct Message {
@@ -57,26 +57,39 @@ impl Message {
     }
 
     pub fn deserialize(mut byte_reader: bytes::ByteReader) -> Result<Message> {
-        let header = Header::deserialize(&mut byte_reader)?;
+        let header = Header::deserialize(&mut byte_reader)
+            .map_err(|e| anyhow!("Unable to deserialize header: {}", e))?;
 
         let mut questions = Vec::new();
         while questions.len() < header.question_count.into() {
-            questions.push(Question::deserialize(&mut byte_reader)?);
+            questions.push(
+                Question::deserialize(&mut byte_reader)
+                    .map_err(|e| anyhow!("Unable to deserialize question: {}", e))?,
+            );
         }
 
         let mut answers = Vec::new();
         while answers.len() < header.answer_count.into() {
-            answers.push(Record::deserialize(&mut byte_reader)?);
+            answers.push(
+                Record::deserialize(&mut byte_reader)
+                    .map_err(|e| anyhow!("Unable to deserialize answer: {}", e))?,
+            );
         }
 
         let mut authorities = Vec::new();
         while authorities.len() < header.authority_count.into() {
-            authorities.push(Record::deserialize(&mut byte_reader)?);
+            authorities.push(
+                Record::deserialize(&mut byte_reader)
+                    .map_err(|e| anyhow!("Unable to deserialize authority: {}", e))?,
+            );
         }
 
         let mut additional = Vec::new();
         while additional.len() < header.additional_count.into() {
-            additional.push(Record::deserialize(&mut byte_reader)?);
+            additional.push(
+                Record::deserialize(&mut byte_reader)
+                    .map_err(|e| anyhow!("Unable to deserialize additional record: {}", e))?,
+            );
         }
 
         Ok(Message {
@@ -119,7 +132,7 @@ pub struct Header {
     pub truncation: bool,            // 1 bit
     pub recursion_desired: bool,     // 1 bit
     pub recursion_available: bool,   // 1 bit
-    pub reserved: u8,                // 3 bits (reserved)
+    pub reserved: u8,                // 3 bits (reserved; now used for DNSSEC)
     pub response_code: ResponseCode, // 4 bits
     pub question_count: u16,         // 16 bits
     pub answer_count: u16,           // 16 bits
