@@ -5,24 +5,24 @@ mod bytes;
 mod dns;
 mod dtos;
 
-use anyhow::{anyhow, Result};
-use std::env;
+use anyhow::Result;
+use clap::Parser;
 
-const RESOLVER: &str = "1.1.1.1:53";
+const DEFAULT_RESOLVER: &str = "1.1.1.1:53";
 
 fn main() -> Result<()> {
-    let domain = parse_args()?;
+    let args = Args::parse();
 
-    println!("Resolver:\t{}\n", RESOLVER);
+    println!("Resolver:\t{}\n", args.resolver);
 
     let request = dtos::Message::new_request(dtos::Question {
-        name: domain,
-        qtype: dtos::Type::A,
-        qclass: dtos::Class::IN,
+        name: args.domain,
+        qtype: args.query_type,
+        qclass: args.class,
     });
     println!("{}", request);
 
-    let client = dns::Client::connect(RESOLVER)?;
+    let client = dns::Client::connect(&args.resolver)?;
     let response = client.resolve(&request)?;
     println!("{}", response);
 
@@ -33,9 +33,23 @@ fn main() -> Result<()> {
     Ok(())
 }
 
-fn parse_args() -> Result<String> {
-    let args: Vec<String> = env::args().collect();
-    args.get(1)
-        .map(std::convert::Into::into)
-        .ok_or_else(|| anyhow!("Missing argument\n\nUsage: denis <domain>"))
+/// Simple program to resolve domain name to IP
+#[derive(Parser, Debug)]
+#[clap(author, version, about, long_about = None)]
+struct Args {
+    /// Domain name to resolve [required]
+    #[clap(short, long, value_parser)]
+    domain: String,
+
+    /// DNS resource record class
+    #[clap(short, long, value_enum, default_value_t = dtos::Class::IN)]
+    class: dtos::Class,
+
+    /// Query DNS resource record type
+    #[clap(short, long, value_enum, default_value_t = dtos::Type::A)]
+    query_type: dtos::Type,
+
+    /// Upstream DNS resolver
+    #[clap(short, long, value_parser, default_value_t = DEFAULT_RESOLVER.to_string())]
+    resolver: String,
 }

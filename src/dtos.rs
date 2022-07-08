@@ -380,7 +380,7 @@ impl ResponseCode {
 
 // https://datatracker.ietf.org/doc/html/rfc1035#section-3.2.2
 // 16 bits
-#[derive(Clone, Copy, Eq, PartialEq, Debug)]
+#[derive(Clone, Copy, Eq, PartialEq, Debug, clap::ValueEnum)]
 pub enum Type {
     A = 1,
     NS = 2,
@@ -434,7 +434,7 @@ impl Type {
 
 // https://datatracker.ietf.org/doc/html/rfc1035#section-3.2.4
 // 16 bits
-#[derive(Clone, Copy, Eq, PartialEq, Debug)]
+#[derive(Clone, Copy, Eq, PartialEq, Debug, clap::ValueEnum)]
 pub enum Class {
     IN = 1,
     CS = 2, // Obsolete
